@@ -436,68 +436,108 @@ export function processCSVContent(fileContent) {
           })).sort((a, b) => b.plays - a.plays);
 
           // Detailed Frequency & Averages: Media by Media and Separated by Totem
-          // Map: mediaName -> { totalPlays, activeDays, totems: { totemName: { plays, dates: Set } } }
+          // Map: mediaName -> { totalPlays, rawDates: Set, rawToDisplayMap, totems: { totemName: { plays, rawDates: Set, rawToDisplayMap } } }
           const mediaFrequencyMap = {};
-          // Map: totemName -> { totalPlays, activeDays, medias: { mediaName: { plays, dates: Set } } }
+          // Map: totemName -> { totalPlays, rawDates: Set, rawToDisplayMap, medias: { mediaName: { plays, rawDates: Set, rawToDisplayMap } } }
           const totemFrequencyMap = {};
 
           validPlays.forEach(p => {
+            const rawKey = p.rawDateFormatted || p.dateStr;
+
             // Media map
             if (!mediaFrequencyMap[p.media]) {
               mediaFrequencyMap[p.media] = {
                 media: p.media,
                 client: p.client,
                 totalPlays: 0,
-                dates: new Set(),
+                rawDates: new Set(),
+                rawToDisplayMap: {},
                 totems: {},
               };
             }
             mediaFrequencyMap[p.media].totalPlays += 1;
-            mediaFrequencyMap[p.media].dates.add(p.dateStr);
+            mediaFrequencyMap[p.media].rawDates.add(rawKey);
+            mediaFrequencyMap[p.media].rawToDisplayMap[rawKey] = p.dateStr;
 
             if (!mediaFrequencyMap[p.media].totems[p.totem]) {
               mediaFrequencyMap[p.media].totems[p.totem] = {
                 totem: p.totem,
                 plays: 0,
-                dates: new Set(),
+                rawDates: new Set(),
+                rawToDisplayMap: {},
               };
             }
             mediaFrequencyMap[p.media].totems[p.totem].plays += 1;
-            mediaFrequencyMap[p.media].totems[p.totem].dates.add(p.dateStr);
+            mediaFrequencyMap[p.media].totems[p.totem].rawDates.add(rawKey);
+            mediaFrequencyMap[p.media].totems[p.totem].rawToDisplayMap[rawKey] = p.dateStr;
 
             // Totem map
             if (!totemFrequencyMap[p.totem]) {
               totemFrequencyMap[p.totem] = {
                 totem: p.totem,
                 totalPlays: 0,
-                dates: new Set(),
+                rawDates: new Set(),
+                rawToDisplayMap: {},
                 medias: {},
               };
             }
             totemFrequencyMap[p.totem].totalPlays += 1;
-            totemFrequencyMap[p.totem].dates.add(p.dateStr);
+            totemFrequencyMap[p.totem].rawDates.add(rawKey);
+            totemFrequencyMap[p.totem].rawToDisplayMap[rawKey] = p.dateStr;
 
             if (!totemFrequencyMap[p.totem].medias[p.media]) {
               totemFrequencyMap[p.totem].medias[p.media] = {
                 media: p.media,
                 client: p.client,
                 plays: 0,
-                dates: new Set(),
+                rawDates: new Set(),
+                rawToDisplayMap: {},
               };
             }
             totemFrequencyMap[p.totem].medias[p.media].plays += 1;
-            totemFrequencyMap[p.totem].medias[p.media].dates.add(p.dateStr);
+            totemFrequencyMap[p.totem].medias[p.media].rawDates.add(rawKey);
+            totemFrequencyMap[p.totem].medias[p.media].rawToDisplayMap[rawKey] = p.dateStr;
           });
+
+          // Helper to calculate start, end and span days
+          const getPeriodDetails = (rawDatesSet, rawToDisplayMap) => {
+            const sortedRaw = Array.from(rawDatesSet).sort();
+            if (sortedRaw.length === 0) {
+              return { startDate: 'N/A', endDate: 'N/A', spanDays: 0, activeDays: 0 };
+            }
+            const firstRaw = sortedRaw[0];
+            const lastRaw = sortedRaw[sortedRaw.length - 1];
+            const startDate = rawToDisplayMap[firstRaw] || firstRaw;
+            const endDate = rawToDisplayMap[lastRaw] || lastRaw;
+
+            let spanDays = sortedRaw.length;
+            if (firstRaw.includes('-') && lastRaw.includes('-')) {
+              const d1 = new Date(firstRaw + 'T00:00:00');
+              const d2 = new Date(lastRaw + 'T00:00:00');
+              if (!isNaN(d1.getTime()) && !isNaN(d2.getTime())) {
+                spanDays = Math.round(Math.abs(d2 - d1) / (1000 * 60 * 60 * 24)) + 1;
+              }
+            }
+
+            return {
+              startDate,
+              endDate,
+              spanDays,
+              activeDays: sortedRaw.length,
+            };
+          };
 
           // Format media frequency stats
           const mediaFrequencyStats = Object.values(mediaFrequencyMap).map(m => {
-            const activeDays = Math.max(1, m.dates.size);
+            const period = getPeriodDetails(m.rawDates, m.rawToDisplayMap);
+            const activeDays = Math.max(1, period.activeDays);
             const avgPerDay = Number((m.totalPlays / activeDays).toFixed(1));
             const avgPerWeek = Number((avgPerDay * 7).toFixed(1));
             const monthTotal = Math.round(avgPerDay * 30);
 
             const totemBreakdown = Object.values(m.totems).map(t => {
-              const tActiveDays = Math.max(1, t.dates.size);
+              const tPeriod = getPeriodDetails(t.rawDates, t.rawToDisplayMap);
+              const tActiveDays = Math.max(1, tPeriod.activeDays);
               const tAvgDay = Number((t.plays / tActiveDays).toFixed(1));
               const tAvgWeek = Number((tAvgDay * 7).toFixed(1));
               const tMonthTotal = Math.round(tAvgDay * 30);
@@ -506,6 +546,9 @@ export function processCSVContent(fileContent) {
               return {
                 totem: t.totem,
                 plays: t.plays,
+                startDate: tPeriod.startDate,
+                endDate: tPeriod.endDate,
+                spanDays: tPeriod.spanDays,
                 activeDays: tActiveDays,
                 avgPerDay: tAvgDay,
                 avgPerWeek: tAvgWeek,
@@ -518,6 +561,9 @@ export function processCSVContent(fileContent) {
               media: m.media,
               client: m.client,
               totalPlays: m.totalPlays,
+              startDate: period.startDate,
+              endDate: period.endDate,
+              spanDays: period.spanDays,
               activeDays,
               avgPerDay,
               avgPerWeek,
@@ -529,13 +575,15 @@ export function processCSVContent(fileContent) {
 
           // Format totem frequency stats
           const totemFrequencyStats = Object.values(totemFrequencyMap).map(t => {
-            const activeDays = Math.max(1, t.dates.size);
+            const period = getPeriodDetails(t.rawDates, t.rawToDisplayMap);
+            const activeDays = Math.max(1, period.activeDays);
             const avgPerDay = Number((t.totalPlays / activeDays).toFixed(1));
             const avgPerWeek = Number((avgPerDay * 7).toFixed(1));
             const monthTotal = Math.round(avgPerDay * 30);
 
             const mediaBreakdown = Object.values(t.medias).map(med => {
-              const mActiveDays = Math.max(1, med.dates.size);
+              const mPeriod = getPeriodDetails(med.rawDates, med.rawToDisplayMap);
+              const mActiveDays = Math.max(1, mPeriod.activeDays);
               const mAvgDay = Number((med.plays / mActiveDays).toFixed(1));
               const mAvgWeek = Number((mAvgDay * 7).toFixed(1));
               const mMonthTotal = Math.round(mAvgDay * 30);
@@ -545,6 +593,9 @@ export function processCSVContent(fileContent) {
                 media: med.media,
                 client: med.client,
                 plays: med.plays,
+                startDate: mPeriod.startDate,
+                endDate: mPeriod.endDate,
+                spanDays: mPeriod.spanDays,
                 activeDays: mActiveDays,
                 avgPerDay: mAvgDay,
                 avgPerWeek: mAvgWeek,
@@ -556,6 +607,9 @@ export function processCSVContent(fileContent) {
             return {
               totem: t.totem,
               totalPlays: t.totalPlays,
+              startDate: period.startDate,
+              endDate: period.endDate,
+              spanDays: period.spanDays,
               activeDays,
               avgPerDay,
               avgPerWeek,

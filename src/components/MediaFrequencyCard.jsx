@@ -11,7 +11,8 @@ import {
   SlidersHorizontal,
   Building2,
   FileSpreadsheet,
-  Download
+  Download,
+  CalendarRange
 } from 'lucide-react';
 import { downloadCSV } from '../utils/sampleDataGenerator';
 
@@ -46,14 +47,17 @@ export default function MediaFrequencyCard({
     setExpandedMedia(expandedMedia === mediaName ? null : mediaName);
   };
 
-  // Export Frequency Table to CSV
+  // Export Frequency Table to CSV with Start and End Dates
   const handleExportFrequencyCSV = () => {
     const headers = [
       'Midia', 
       'Cliente', 
       'Totem', 
+      'Data_Inicio',
+      'Data_Fim',
+      'Dias_Campanha_Span',
+      'Dias_Ativos_Com_Exibicao',
       'Exibicoes_Validas_Periodo', 
-      'Dias_Ativos', 
       'Media_Por_Dia', 
       'Media_Por_Semana', 
       'Total_Estimado_Mes_30d'
@@ -66,8 +70,11 @@ export default function MediaFrequencyCard({
         `"${m.media.replace(/"/g, '""')}"`,
         `"${m.client.replace(/"/g, '""')}"`,
         '"TODOS OS TOTENS (CONSOLIDADO)"',
-        m.totalPlays,
+        `"${m.startDate}"`,
+        `"${m.endDate}"`,
+        m.spanDays,
         m.activeDays,
+        m.totalPlays,
         m.avgPerDay,
         m.avgPerWeek,
         m.monthTotal,
@@ -79,8 +86,11 @@ export default function MediaFrequencyCard({
           `"${m.media.replace(/"/g, '""')}"`,
           `"${m.client.replace(/"/g, '""')}"`,
           `"${tb.totem.replace(/"/g, '""')}"`,
-          tb.plays,
+          `"${tb.startDate}"`,
+          `"${tb.endDate}"`,
+          tb.spanDays,
           tb.activeDays,
+          tb.plays,
           tb.avgPerDay,
           tb.avgPerWeek,
           tb.monthTotal,
@@ -111,7 +121,7 @@ export default function MediaFrequencyCard({
               </span>
             </div>
             <p className="text-xs text-slate-400">
-              Taxa de repetição calculada por <strong>dia</strong>, por <strong>semana</strong> e <strong>no mês todo</strong> na janela contratada.
+              Taxa de repetição calculada por <strong>dia</strong>, por <strong>semana</strong> e <strong>no mês todo</strong> considerando o período exato de veiculação.
             </p>
           </div>
         </div>
@@ -209,8 +219,8 @@ export default function MediaFrequencyCard({
                     onClick={() => toggleExpand(m.media)}
                     className="p-4 cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-4 select-none"
                   >
-                    {/* Media Identification */}
-                    <div className="space-y-1 max-w-sm">
+                    {/* Media Identification & Date Range Badge */}
+                    <div className="space-y-1.5 max-w-sm">
                       <div className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-cyan-400 shrink-0" />
                         <h4 className="text-sm font-bold text-white truncate" title={m.media}>
@@ -222,6 +232,24 @@ export default function MediaFrequencyCard({
                         <span className="text-slate-300 font-medium">{m.client}</span>
                         <span>•</span>
                         <span>{m.totemCount} {m.totemCount === 1 ? 'totem ativo' : 'totens ativos'}</span>
+                      </div>
+
+                      {/* Prominent Period Dates (Data Início e Fim) */}
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px]">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-slate-900 border border-cyan-800/50 text-cyan-300 font-mono">
+                          <CalendarRange className="w-3 h-3 text-cyan-400 shrink-0" />
+                          <span><strong>{m.startDate}</strong> a <strong>{m.endDate}</strong></span>
+                          <span className="text-slate-400 font-sans">({m.spanDays} {m.spanDays === 1 ? 'dia' : 'dias'})</span>
+                        </span>
+                        {m.spanDays < 28 ? (
+                          <span className="px-2 py-0.5 rounded-md bg-amber-950/60 border border-amber-800/60 text-amber-300 text-[10px] font-semibold">
+                            Campanha Parcial
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-950/60 border border-emerald-800/60 text-emerald-300 text-[10px] font-semibold">
+                            Mês Completo
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -290,7 +318,7 @@ export default function MediaFrequencyCard({
                           Desdobramento da Mídia por Totem ({m.totemBreakdown.length} telas):
                         </span>
                         <span className="text-slate-400 text-[11px]">
-                          Médias individuais calculadas para cada ponto
+                          Período e médias individuais calculadas para cada tela
                         </span>
                       </div>
 
@@ -299,8 +327,9 @@ export default function MediaFrequencyCard({
                           <thead>
                             <tr className="border-b border-slate-800 text-slate-400 text-[11px]">
                               <th className="py-2 px-3">Totem / Ponto</th>
+                              <th className="py-2 px-3">Período de Veiculação</th>
                               <th className="py-2 px-3 text-center">Total Válido</th>
-                              <th className="py-2 px-3 text-center">Share do Totem</th>
+                              <th className="py-2 px-3 text-center">Share</th>
                               <th className="py-2 px-3 text-right">Média / Dia</th>
                               <th className="py-2 px-3 text-right">Média / Semana</th>
                               <th className="py-2 px-3 text-right">Mês Todo (30d)</th>
@@ -312,6 +341,14 @@ export default function MediaFrequencyCard({
                                 <td className="py-2.5 px-3 font-medium text-white flex items-center gap-2">
                                   <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
                                   {tb.totem}
+                                </td>
+                                <td className="py-2.5 px-3 font-mono text-[11px] text-slate-300">
+                                  <div className="text-cyan-300 font-medium">
+                                    {tb.startDate} a {tb.endDate}
+                                  </div>
+                                  <div className="text-[10px] text-slate-500">
+                                    {tb.spanDays} {tb.spanDays === 1 ? 'dia' : 'dias'} ({tb.activeDays} com inserção)
+                                  </div>
                                 </td>
                                 <td className="py-2.5 px-3 text-center font-mono text-white">
                                   {tb.plays.toLocaleString('pt-BR')}
@@ -367,7 +404,9 @@ export default function MediaFrequencyCard({
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-white">{t.totem}</h4>
-                    <p className="text-[11px] text-slate-400">{t.mediaCount} mídias ativas nesta tela</p>
+                    <p className="text-[11px] text-slate-400">
+                      {t.mediaCount} mídias • {t.startDate} a {t.endDate} ({t.spanDays} dias)
+                    </p>
                   </div>
                 </div>
 
@@ -404,7 +443,9 @@ export default function MediaFrequencyCard({
                   >
                     <div className="truncate max-w-[170px]">
                       <div className="font-medium text-white truncate" title={med.media}>{med.media}</div>
-                      <div className="text-[10px] text-slate-400 truncate">{med.client}</div>
+                      <div className="text-[10px] text-slate-400 truncate">
+                        {med.startDate} a {med.endDate} ({med.spanDays}d)
+                      </div>
                     </div>
                     <div className="text-right font-mono text-[11px]">
                       <span className="text-cyan-400 font-bold">{med.avgPerDay}</span>
