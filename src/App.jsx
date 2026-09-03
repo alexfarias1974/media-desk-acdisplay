@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import logoAc from './assets/logo-ac.png';
 import Header from './components/Header';
 import Dropzone from './components/Dropzone';
 import AuditSummaryCards from './components/AuditSummaryCards';
@@ -239,7 +240,7 @@ export default function App() {
       <footer className="border-t border-slate-900 py-6 mt-12 text-center text-xs text-slate-500 no-print">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <img src="/logo-ac.png" alt="AC Display" className="h-4 w-auto opacity-70" />
+            <img src={logoAc} alt="AC Display" className="h-4 w-auto opacity-70" />
             <span className="font-semibold text-slate-400">MediaDesk • AC Display</span>
             <span>•</span>
             <span>Auditoria OOH para Totens Publicitários</span>

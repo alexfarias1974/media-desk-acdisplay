@@ -1,4 +1,5 @@
 import React from 'react';
+import logoAc from '../assets/logo-ac.png';
 import { 
   Clock, 
   ShieldCheck, 
@@ -17,7 +18,7 @@ export default function Header({
   onReset, 
   onLoadSample, 
   onDownloadSample, 
-  onOpenGoals,
+  onOpenGoals, 
   totalValid,
   goalsCount,
   currentView,
@@ -31,7 +32,7 @@ export default function Header({
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <img 
-              src="/logo-ac.png" 
+              src={logoAc} 
               alt="AC Display" 
               className="h-9 w-auto object-contain drop-shadow-[0_0_12px_rgba(255,0,128,0.35)]"
             />
